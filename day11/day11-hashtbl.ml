@@ -25,36 +25,49 @@ let rec create_device_list (input: string list) = match input with
             let device_list = 
                 (List.hd list, 
                 String.split_on_char ' ' (List.nth list 1)) in
-            [device_list] @ create_device_list xs
+            device_list :: create_device_list xs
 
 let result1 (input: string) = (create_device_list (String.split_on_char '\n' input)) |> number_of_paths 
 
 (* part 2 *)
 
-let rec step_from_stop_at (output: string list) (device_list: (string * string list) list) (stop: string)  = match output with
+let create_device_hashtbl (device_list: (string * string list) list) =
+    let table = Hashtbl.create 0 in 
+    
+    List.iter (fun (device, outputs) -> Hashtbl.add table device outputs) device_list;
+    table
+
+let output_list_hashtbl (device: string) (table: (string, string list) Hashtbl.t) : string list = 
+    try Hashtbl.find table device
+    with Not_found -> []
+
+
+let rec step_from_stop_at (output: string list) (table: (string, string list) Hashtbl.t) (stop: string)  = match output with
      | [] -> []
      | x :: xs ->
             if x = stop 
-                then [stop] @ step_from_stop_at xs device_list stop 
-                else let new_outputs = (output_list x device_list) @ xs in
-                step_from_stop_at new_outputs device_list stop 
+                then [stop] @ step_from_stop_at xs table stop 
+                else let new_outputs = (output_list_hashtbl x table) @ xs in
+                step_from_stop_at new_outputs table stop 
 
 
-let count_paths_dfs (start_device: string) (target_device: string) (device_list: (string * string list) list) (must_visit: string list) =
+let count_paths_dfs (start_device: string) (target_device: string) (table: (string, string list) Hashtbl.t) (must_visit: string list) =
     let rec dfs (current_device: string) (visited: string list) = 
-        if current_device = target_device 
+        if List.mem current_device visited then
+            0
+        else if current_device = target_device 
             then if List.for_all (fun m -> List.mem m visited) must_visit = true
                 then 1 else 0
         else
-            let outputs = output_list current_device device_list in
+            let outputs = output_list_hashtbl current_device table in
             let new_visited = current_device :: visited in
             let paths = List.map (fun a -> dfs a new_visited) outputs in
             List.fold_left (+) 0 paths
     in dfs start_device []
 
-let number_of_paths2 (device_list: (string * string list) list) = 
-    count_paths_dfs "svr" "out" device_list ["fft"; "dac"]
+let number_of_paths2 (table: (string, string list) Hashtbl.t) = 
+    count_paths_dfs "svr" "out" table []
 
 let result2 (input: string) =
-    let device_list = create_device_list (String.split_on_char '\n' input) in
+    let device_list = create_device_list (String.split_on_char '\n' input) |> create_device_hashtbl in
     number_of_paths2 device_list
